@@ -158,30 +158,32 @@ footer p{font-size:13px;max-width:80ch}
 @media(max-width:520px){.device-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 
 
-/* Alpha7 interactive cloth banner — added without changing the original ROM page styles */
+/* Alpha7 — original WebGL pinned-cloth simulation */
 .alpha-cloth-hero{
-  position:relative; width:100%; height:min(72vh,760px); min-height:420px;
-  margin:34px 0 42px; overflow:hidden; isolation:isolate; background:transparent;
+  position:relative;
+  width:min(100%, 680px);
+  aspect-ratio: auto;
+  margin:30px auto 42px;
+  overflow:hidden;
+  isolation:isolate;
+  background:transparent;
+  touch-action:pan-y;
 }
-.alpha-cloth-hero .alpha-cloth-canvas{
-  position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0;
-  touch-action:pan-y; -webkit-tap-highlight-color:transparent; outline:none;
+.alpha-cloth-canvas{
+  position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1;
+  background:transparent;touch-action:pan-y;-webkit-tap-highlight-color:transparent;outline:none;
 }
-.alpha-cloth-hero .alpha-cloth-canvas.is-over{cursor:grab}
-.alpha-cloth-hero .alpha-cloth-canvas.is-held{cursor:grabbing}
-.alpha-cloth-hero .alpha-cloth-canvas:focus-visible{outline:2px solid #5B8CFF;outline-offset:-6px}
-.alpha-cloth-hero .alpha-cloth-still{
-  position:absolute; left:40%; top:48.5%; width:min(64vw,84vh); aspect-ratio:1/1;
-  object-fit:cover; transform:translate(-50%,-50%) rotate(5deg);
-  box-shadow:-18px 40px 70px rgba(255,255,255,.10); display:none;
+.alpha-cloth-canvas.is-over{cursor:grab}
+.alpha-cloth-canvas.is-held{cursor:grabbing}
+.alpha-cloth-canvas:focus-visible{outline:2px solid var(--accent);outline-offset:-6px}
+.alpha-cloth-still{
+  position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;
+  transform:translate(-50%,-50%);display:none;z-index:2;
 }
 .alpha-cloth-hero.no-cloth .alpha-cloth-still{display:block}
 .alpha-cloth-hero.no-cloth .alpha-cloth-canvas{display:none}
-@media(max-width:1099px),(max-aspect-ratio:5/4){
-  .alpha-cloth-hero{height:min(66vh,620px);min-height:360px}
-  .alpha-cloth-hero .alpha-cloth-still{left:50%;top:44%;width:min(78vw,60vh)}
-}
-@media(max-width:520px){.alpha-cloth-hero{height:58vh;min-height:340px;margin:26px 0 34px}}
+@media(max-width:700px){.alpha-cloth-hero{width:100%;margin:24px auto 32px}}
+
 
 </style>
 </head>
@@ -785,16 +787,33 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
     <div class="eyebrow">/community-rom · custom android</div>
     <h1>HyperOS <span class="sel">Next Gen<i></i><i></i><i></i><i></i></span></h1>
     <section class="alpha-cloth-hero" id="alpha-cloth-hero" aria-label="Interactive Alpha7 holographic cloth banner">
-      <canvas class="alpha-cloth-canvas" id="alpha-cloth" role="img" tabindex="-1" aria-label="Interactive cloth displaying the Alpha7 image. Grab and drag it around."></canvas>
-      <img class="alpha-cloth-still" id="alpha-cloth-still" alt="Alpha7 banner image" decoding="async" src="alpha%20images/Alpha7.jpg">
+      <canvas class="alpha-cloth-canvas" id="alpha-cloth-canvas" role="img" tabindex="0" aria-label="Alpha7 image printed on a simulated cloth. Grab and drag it with mouse or touch."></canvas>
+      <img class="alpha-cloth-still" alt="Alpha7 banner" src="alpha%20images/Alpha7.jpg" decoding="async" loading="eager">
     </section>
     <script>
-
 (function () {
   "use strict";
-  var IMG_URL = "alpha%20images/Alpha7.jpg";
+  // Wait for the actual local image dimensions before building the cloth mesh.
+  // This makes both the banner box and the simulated fabric match any photo ratio.
+  // Force a fresh read on each page load so replacing alpha images/Alpha7.jpg
+  // is reflected immediately instead of reusing a stale browser-cached texture.
+  var ALPHA7_SRC = "alpha%20images/Alpha7.jpg?v=" + Date.now();
+  var stillImage = document.querySelector(".alpha-cloth-still");
+  if (stillImage) stillImage.src = ALPHA7_SRC;
+  var imageProbe = new Image();
+  imageProbe.decoding = "async";
+  imageProbe.onload = function () {
+    var banner = document.getElementById("alpha-cloth-hero");
+    var detectedAspect = imageProbe.naturalWidth / imageProbe.naturalHeight;
+    if (banner && detectedAspect > 0 && isFinite(detectedAspect)) {
+      banner.style.aspectRatio = imageProbe.naturalWidth + " / " + imageProbe.naturalHeight;
+    }
+    (function () {
+  var DETECTED_IMAGE_ASPECT = detectedAspect;
+  "use strict";
+  var IMG_URL = ALPHA7_SRC;
   var hero = document.getElementById("alpha-cloth-hero");
-  var canvas = document.getElementById("alpha-cloth");
+  var canvas = document.getElementById("alpha-cloth-canvas");
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function fail() { hero.classList.add("no-cloth"); }
@@ -807,7 +826,7 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
 
   /* ---------- settings ---------- */
   var S = {
-    size: 0.90, aspect: 1.12, spread: 0.98, pinRoll: 5.5, flutter: 0.35, damping: 0.30,
+    size: 0.90, aspect: DETECTED_IMAGE_ASPECT, spread: 0.98, pinRoll: 5.5, flutter: 0.35, damping: 0.30,
     stiffness: 0.60, crumple: 0.55, grabRadius: 0.12, carryRadius: 0.20, gravity: 2.6,
     tilt: -10, turn: -12, perspective: 0.45, maxSpeed: 12, steps: 8
   };
@@ -1163,30 +1182,34 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
 
   // print texture
   var tex = gl.createTexture(), texReady = false;
-  var img = new Image();
-  img.onload = function () {
-    try {
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      gl.generateMipmap(gl.TEXTURE_2D);
-      var ext = gl.getExtension("EXT_texture_filter_anisotropic") ||
-                gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
-                gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
-      if (ext) {
-        var mx = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, mx));
-      }
-      texReady = true;
-      draw();
-    } catch (e) { fail(); }
-  };
-  img.onerror = fail;
-  img.src = IMG_URL;
+  // Reuse the already-loaded probe image. This avoids a second asynchronous
+  // request (and the intermittent black-cloth race in the previous build).
+  var img = imageProbe;
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // WebGL 1 requires power-of-two dimensions for mipmaps. Replacement photos
+    // are often 1000x1500, 1080x1920, etc. Those NPOT textures become
+    // incomplete (and render black) if mipmap filtering is enabled.
+    var isPowerOfTwo = function (v) { return v > 0 && (v & (v - 1)) === 0; };
+    var potImage = isPowerOfTwo(img.naturalWidth) && isPowerOfTwo(img.naturalHeight);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, potImage ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    if (potImage) gl.generateMipmap(gl.TEXTURE_2D);
+    var ext = gl.getExtension("EXT_texture_filter_anisotropic") ||
+              gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
+              gl.getExtension("MOZ_texture_filter_anisotropic");
+    if (ext) {
+      var mx = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+      gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, mx));
+    }
+    texReady = true;
+  } catch (e) {
+    fail();
+  }
 
   /* ---------- view ---------- */
   var cx = 0.402, cy = 0.485, zoom = 1, AR = 1.5, heroW = 1, heroH = 1;
@@ -1200,13 +1223,8 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
       canvas.width = pw; canvas.height = ph;
       sizeShadow(pw, ph);
     }
-    if (heroW >= 1100 && AR >= 1.25) {
-      cx = 0.402; cy = 0.485;
-      zoom = Math.min(1, 0.58 * AR / (CW * 1.12));
-    } else {
-      cx = 0.5; cy = AR < 0.75 ? 0.41 : 0.43;
-      zoom = Math.min(1, 0.92 * AR / (CW * 1.12), (AR < 0.75 ? 0.60 : 0.66) / CH);
-    }
+    cx = 0.5; cy = 0.49;
+    zoom = Math.min(1, 0.96 * AR / (CW * 1.12), 0.94 / CH);
     if (!running) draw();
   }
 
@@ -1438,8 +1456,11 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
   computeView();
   draw();
   sync();
+    })();
+  };
+  imageProbe.onerror = function () { var b=document.getElementById('alpha-cloth-hero'); if(b)b.classList.add('no-cloth'); };
+  imageProbe.src = ALPHA7_SRC;
 })();
-
     </script>
 
     <p class="lead">A fast, clean and fluid custom ROM built for people who want a fresh HyperOS experience with smoother animations, a refined interface and a lighter system.</p>
