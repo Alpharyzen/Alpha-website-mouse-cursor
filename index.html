@@ -161,9 +161,15 @@ footer p{font-size:13px;max-width:80ch}
 /* Alpha7 — original WebGL pinned-cloth simulation */
 .alpha-cloth-hero{
   position:relative;
-  width:min(100%, 680px);
-  aspect-ratio: auto;
-  margin:30px auto 42px;
+  width:calc(100vw - 2px);
+  max-width:none;
+  position:relative;
+  left:auto;
+  transform:none;
+  margin:30px 0 42px;
+  padding-top:0!important;
+  margin-left:calc(50% - 50vw + 1px);
+  aspect-ratio:auto;
   overflow:hidden;
   isolation:isolate;
   background:transparent;
@@ -182,7 +188,7 @@ footer p{font-size:13px;max-width:80ch}
 }
 .alpha-cloth-hero.no-cloth .alpha-cloth-still{display:block}
 .alpha-cloth-hero.no-cloth .alpha-cloth-canvas{display:none}
-@media(max-width:700px){.alpha-cloth-hero{width:100%;margin:24px auto 32px}}
+@media(max-width:700px){.alpha-cloth-hero{width:calc(100vw - 2px);max-width:none;margin:24px 0 32px}}
 
 
 </style>
@@ -1478,9 +1484,9 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
     </div>
 
     <div class="device-gallery">
-      <figure class="device-shot"><img src="alpha%20images/Alpha1.jpg" alt="HyperOS Next Gen device preview 1" loading="lazy"></figure>
-      <figure class="device-shot"><img src="alpha%20images/Alpha2.jpg" alt="HyperOS Next Gen device preview 2" loading="lazy"></figure>
-      <figure class="device-shot"><img src="alpha%20images/Alpha3.jpg" alt="HyperOS Next Gen device preview 3" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha1.jpg" src="alpha%20images/Alpha1.jpg" alt="HyperOS Next Gen device preview 1" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha2.jpg" src="alpha%20images/Alpha2.jpg" alt="HyperOS Next Gen device preview 2" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha3.jpg" src="alpha%20images/Alpha3.jpg" alt="HyperOS Next Gen device preview 3" loading="lazy"></figure>
     </div>
   </section>
 
@@ -1537,9 +1543,9 @@ requestAnimationFrame(function(t){last=t;requestAnimationFrame(loop)});
     <h2>Look and feel.</h2>
     <p class="sub">Home screen, lock screen and control center, all redesigned from the ground up.</p>
     <div class="device-gallery">
-      <figure class="device-shot"><img src="alpha%20images/Alpha4.jpg" alt="HyperOS Next Gen device preview 4" loading="lazy"></figure>
-      <figure class="device-shot"><img src="alpha%20images/Alpha5.jpg" alt="HyperOS Next Gen device preview 5" loading="lazy"></figure>
-      <figure class="device-shot"><img src="alpha%20images/Alpha6.jpg" alt="HyperOS Next Gen device preview 6" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha4.jpg" src="alpha%20images/Alpha4.jpg" alt="HyperOS Next Gen device preview 4" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha5.jpg" src="alpha%20images/Alpha5.jpg" alt="HyperOS Next Gen device preview 5" loading="lazy"></figure>
+      <figure class="device-shot"><img data-alpha-placeholder="Alpha6.jpg" src="alpha%20images/Alpha6.jpg" alt="HyperOS Next Gen device preview 6" loading="lazy"></figure>
     </div>
   </section>
 
@@ -1630,5 +1636,28 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-download]'), funct
   a.href = DOWNLOAD_URL; a.target = '_blank'; a.rel = 'noopener';
 });
 </script>
+
+<script>
+/* Missing user-supplied gallery photos: keep the layout clean until files are added. */
+document.querySelectorAll('img[data-alpha-placeholder]').forEach(function (img) {
+  img.addEventListener('error', function () {
+    var slot = img.closest('.device-shot') || img.parentElement;
+    img.hidden = true;
+    if (slot && !slot.querySelector('.alpha-missing-note')) {
+      var note = document.createElement('div');
+      note.className = 'alpha-missing-note';
+      note.textContent = img.getAttribute('data-alpha-placeholder') + ' — add this file to the "alpha images" folder';
+      slot.appendChild(note);
+    }
+  });
+});
+</script>
+<style>
+.alpha-missing-note{
+  min-height:120px;display:grid;place-items:center;padding:18px;text-align:center;
+  border:1px dashed var(--line-2);color:var(--muted);font:12px/1.5 var(--mono);
+}
+</style>
+
 </body>
 </html>
